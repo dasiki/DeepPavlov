@@ -21,7 +21,7 @@
         "class_name": "entity_detection_parser"
       },
       {
-        "class_name": "wiki_parser",
+        "class_name": "wiki_parser_online",
         "id": "wiki_p",
         "wiki_filename": "{DOWNLOADS_PATH}/wikidata_eng/wikidata2018_09_11.hdt"
       },
@@ -57,7 +57,7 @@
         "rels_to_leave": 40
       },
       {
-        "class_name": "query_generator",
+        "class_name": "query_generator_online",
         "id": "query_g",
         "linker": "#linker",
         "template_matcher": "#template_m",
@@ -173,14 +173,6 @@
       },
       {
         "url": "http://files.deeppavlov.ai/kbqa/wikidata/rels_1.txt",
-        "subdir": "{DOWNLOADS_PATH}/wikidata_eng"
-      },
-      {
-        "url": "http://files.deeppavlov.ai/kbqa/wikidata/wikidata.hdt",
-        "subdir": "{DOWNLOADS_PATH}/wikidata_eng"
-      },
-      {
-        "url": "http://files.deeppavlov.ai/kbqa/wikidata/wikidata.hdt.index.v1-1",
         "subdir": "{DOWNLOADS_PATH}/wikidata_eng"
       }
     ]

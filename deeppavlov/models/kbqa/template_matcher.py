@@ -14,7 +14,6 @@
 
 import re
 import pickle
-from string import punctuation
 from typing import List, Tuple
 
 from deeppavlov.core.common.registry import register
@@ -24,7 +23,21 @@ from deeppavlov.core.models.serializable import Serializable
 
 @register('template_matcher')
 class TemplateMatcher(Component, Serializable):
-    def __init__(self, load_path: str, templates_filename: str = None, *args, **kwargs) -> None:
+    """
+        This class matches the question with one of the templates
+        to extract entity substrings and define which relations
+        corresponds to the question
+    """
+    def __init__(self, load_path: str,
+                       templates_filename: str = None,
+                       **kwargs) -> None:
+        """
+
+        Args:
+            load_path: path to folder with file with templates
+            templates_filename: file with templates
+            **kwargs:
+        """
         super().__init__(save_path=None, load_path=load_path)
         self._templates_filename = templates_filename
         self.load()
@@ -37,20 +50,33 @@ class TemplateMatcher(Component, Serializable):
     def save(self) -> None:
         raise NotImplementedError
 
-    def __call__(self, question: str, *args, **kwargs) -> Tuple[str, str]:
+    def __call__(self, question: str, *args, **kwargs) -> Tuple[List[str], List[Tuple[str]], str]:
         question = question.lower()
+        question_length = len(question)
         entities = []
         relations = []
+        query_type = ""
         min_length = 100
         for template in self.templates:
-            template_regexp = template.replace("xxx", "([a-z\d\s\.]+)")
+            template_len = len(template.replace('xxx', ''))
+            template_regexp = template.replace("xxx", "([a-zа-я\d\s\.]+)")
             fnd = re.findall(template_regexp, question)
             if fnd:
                 entities_cand = fnd[0]
-                cur_len = sum([len(entity) for entity in entities_cand])
-                if cur_len < min_length:
-                    entities = entities_cand
-                    relations = self.templates[template]
+                if str(type(entities_cand)) == "<class 'str'>":
+                    entities_cand = [entities_cand]
 
-        return entities, relations
+                found = True
+                entity_lengths = [len(entity) for entity in entities_cand]
+                for length in entity_lengths:
+                    if length == 0:
+                        found = False
+                if found:
+                    cur_len = sum(entity_lengths)
+                    if cur_len < min_length and template_len+cur_len == question_length:
+                        entities = entities_cand
+                        relations = self.templates[template][1:]
+                        query_type = self.templates[template][0]
+                        min_length = cur_len
 
+        return entities, relations, query_type
