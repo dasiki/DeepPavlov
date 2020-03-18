@@ -199,7 +199,7 @@ class QueryGenerator(Component, Serializable):
 
         return candidate_outputs
 
-    def questions_with_count_solver(self, question: str, entity_ids: List[List[str]]) -> List[Tuple[str, int]]:
+    def questions_with_count_solver(self, question: str, entity_ids: List[List[str]]) -> List[Tuple[str, str]]:
         candidate_outputs = []
 
         ex_rels = []
@@ -219,10 +219,10 @@ class QueryGenerator(Component, Serializable):
                 for rel in top_rels[:self.rels_to_leave]:
                     answers += self.wiki_parser("objects", "forw", entity, rel, type_of_rel="direct")
                     if len(answers) > 0:
-                        candidate_outputs.append((rel, len(answers)))
+                        candidate_outputs.append((rel, str(len(answers))))
                     else:
                         answers += self.wiki_parser("objects", "backw", entity, rel, type_of_rel="direct")
-                        candidate_outputs.append((rel, len(answers)))
+                        candidate_outputs.append((rel, str(len(answers))))
 
         return candidate_outputs
 

@@ -8,6 +8,7 @@ from deeppavlov.core.models.component import Component
 from deeppavlov.models.embedders.abstract_embedder import Embedder
 from deeppavlov.core.layers.tf_layers import cudnn_bi_gru, variational_dropout
 from deeppavlov.models.squad.utils import softmax_mask
+from deeppavlov.models.squad.utils import CudnnGRU
 
 
 @register('two_sentences_emb')
@@ -70,6 +71,7 @@ class RelRanker(LRScheduledTFModel):
         r_len_2 = tf.reduce_sum(tf.cast(r_mask_2, tf.int32), axis=2)
         r_mask = tf.cast(r_len_2, tf.bool)
         r_len = tf.reduce_sum(tf.cast(r_mask, tf.int32), axis=1)
+        rel_emb = tf.math.divide_no_nan(tf.reduce_sum(self.rel_emb_ph, axis=1), tf.cast(tf.expand_dims(r_len, axis=1), tf.float32))
 
         self.y_ph = tf.placeholder(tf.int32, shape=(None,))
         self.one_hot_labels = tf.one_hot(self.y_ph, depth=self.n_classes, dtype=tf.float32)
@@ -81,21 +83,19 @@ class RelRanker(LRScheduledTFModel):
         q_len = tf.reduce_sum(tf.cast(q_mask, tf.int32), axis=1)
 
         question_dr = variational_dropout(self.question_ph, keep_prob=self.keep_prob_ph)
+        b_size = tf.shape(self.question_ph)[0]
 
         with tf.variable_scope("question_encode"):
-            (h_fw, h_bw), _ = cudnn_bi_gru(question_dr, 150, seq_lengths=q_len)
-            q = tf.concat([h_fw, h_bw], axis=2)
-        with tf.variable_scope("relation_encode"):
-            _, (h_last_fw, h_last_bw) = cudnn_bi_gru(self.rel_emb_ph, 150, seq_lengths=r_len)
-            r = tf.concat([h_last_fw, h_last_bw], axis=1)
-            r_exp = tf.expand_dims(r, axis=1)
+            rnn = CudnnGRU(num_layers=2, num_units=75, batch_size=b_size, input_size=300, keep_prob=self.keep_prob_ph)
+            q = rnn(question_dr, seq_len=q_len)
         with tf.variable_scope("attention"):
-            dot_products = tf.reduce_sum(tf.multiply(q, r_exp), axis=2, keep_dims=False)
+            rel_emb_exp = tf.expand_dims(rel_emb, axis=1)
+            dot_products = tf.reduce_sum(tf.multiply(q, rel_emb_exp), axis=2, keep_dims=False)
             s_mask = softmax_mask(dot_products, q_mask)
             att_weights = tf.expand_dims(tf.nn.softmax(s_mask), axis=2)
             self.s_r = tf.reduce_sum(tf.multiply(att_weights, q), axis=1)
 
-            self.logits = tf.layers.dense(tf.multiply(self.s_r, r), 2, activation=None, use_bias=False)
+            self.logits = tf.layers.dense(tf.multiply(self.s_r, rel_emb), 2, activation=None, use_bias=False)
             self.y_pred = tf.argmax(self.logits, axis=-1)
 
             loss_tensor = tf.nn.sigmoid_cross_entropy_with_logits(labels=self.one_hot_labels, logits=self.logits)
