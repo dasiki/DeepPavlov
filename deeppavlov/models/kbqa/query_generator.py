@@ -12,15 +12,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import json
 import re
 import nltk
 from logging import getLogger
-from deeppavlov.core.common.chainer import Chainer
 from deeppavlov.core.common.registry import register
 from deeppavlov.core.models.component import Component
 from deeppavlov.core.models.serializable import Serializable
-from typing import Union, Tuple, List
+from typing import Tuple, List, Any
 from deeppavlov.models.kbqa.template_matcher import TemplateMatcher
 from deeppavlov.models.kbqa.entity_linking import EntityLinker
 from deeppavlov.models.kbqa.wiki_parser import WikiParser
@@ -35,16 +33,17 @@ class QueryGenerator(Component, Serializable):
         This class takes as input entity substrings, defines the template of the query and
         fills the slots of the template with candidate entities and relations.
     """
+
     def __init__(self, template_matcher: TemplateMatcher,
-                       linker: EntityLinker,
-                       wiki_parser: WikiParser,
-                       rel_ranker: RelRankerInfer,
-                       load_path: str,
-                       rank_rels_filename_1: str,
-                       rank_rels_filename_2: str,
-                       entities_to_leave: int = 5,
-                       rels_to_leave: int = 10,
-                       debug: bool = False, **kwargs) -> None:
+                 linker: EntityLinker,
+                 wiki_parser: WikiParser,
+                 rel_ranker: RelRankerInfer,
+                 load_path: str,
+                 rank_rels_filename_1: str,
+                 rank_rels_filename_2: str,
+                 entities_to_leave: int = 5,
+                 rels_to_leave: int = 10,
+                 debug: bool = False, **kwargs) -> None:
         """
 
         Args:
@@ -84,13 +83,13 @@ class QueryGenerator(Component, Serializable):
     def save(self) -> None:
         pass
 
-    def __call__(self, question_tuple: List[str], 
-                       template_type: List[str], 
-                       entities_from_ner: List[str]) -> List[Tuple[str]]:
+    def __call__(self, question_tuple: List[str],
+                 template_type: List[str],
+                 entities_from_ner: List[str]) -> List[Tuple[str]]:
 
         candidate_outputs = []
         question = question_tuple[0]
-        self.template_num  = int(template_type[0])
+        self.template_num = int(template_type[0])
 
         question = question.replace('"', "'").replace('{', '').replace('}', '').replace('  ', ' ')
         entities_from_template, rels_from_template, query_type_template = self.template_matcher(question)
@@ -124,9 +123,9 @@ class QueryGenerator(Component, Serializable):
             entity_ids.append(entity_id[:15])
         return entity_ids
 
-    def find_candidate_answers(self, question: str, 
-                                     entity_ids: List[List[str]], 
-                                     rels_from_template: List[Tuple[str]]) -> List[Tuple[str]]:
+    def find_candidate_answers(self, question: str,
+                               entity_ids: List[List[str]],
+                               rels_from_template: List[Tuple[str]]) -> List[Tuple[str]]:
         candidate_outputs = []
 
         if self.template_num == 0 or self.template_num == 1:
@@ -150,10 +149,9 @@ class QueryGenerator(Component, Serializable):
             candidate_outputs = self.two_hop_solver(question, entity_ids, rels_from_template)
 
         if self.debug:
-            log.debug("candidate_rels_and_answers:\n"+'\n'.join([str(output) for output in candidate_outputs]))
+            log.debug("candidate_rels_and_answers:\n" + '\n'.join([str(output) for output in candidate_outputs]))
 
         return candidate_outputs
-
 
     def complex_question_with_number_solver(self, question: str, entity_ids: List[List[str]]) -> List[Tuple[str]]:
         question_tokens = nltk.word_tokenize(question)
@@ -173,7 +171,7 @@ class QueryGenerator(Component, Serializable):
             log.debug(f"year {year}, number {number}")
 
         candidate_outputs = []
-            
+
         if year:
             candidate_outputs = self.find_relevant_subgraph_cqwn(entity_ids[0][:self.entities_to_leave],
                                                                  top_rels[:self.rels_to_leave], year)
@@ -192,16 +190,16 @@ class QueryGenerator(Component, Serializable):
         top_rels = [score[0] for score in scores]
         if self.debug:
             log.debug(f"top scored rels: {top_rels}")
-    
+
         candidate_outputs = []
-    
+
         if len(entity_ids) > 1:
             ent_combs = self.make_entity_combs(entity_ids)
             candidate_outputs = self.find_relevant_subgraph_cqwq(ent_combs, top_rels[:self.rels_to_leave])
-    
+
         return candidate_outputs
 
-    def questions_with_count_solver(self, question: str, entity_ids: List[List[str]]) -> List[Tuple[str]]:
+    def questions_with_count_solver(self, question: str, entity_ids: List[List[str]]) -> List[Tuple[str, int]]:
         candidate_outputs = []
 
         ex_rels = []
@@ -227,8 +225,8 @@ class QueryGenerator(Component, Serializable):
                         candidate_outputs.append((rel, len(answers)))
 
         return candidate_outputs
-    
-    def maxmin_one_entity_solver(self, question: str, entities_list: List[str]) -> List[Tuple[str]]:
+
+    def maxmin_one_entity_solver(self, question: str, entities_list: List[str]) -> List[Tuple[str, Any]]:
         scores = self.rel_ranker(question, self.rank_list_0)
         top_rels = [score[0] for score in scores]
         if self.debug:
@@ -242,15 +240,15 @@ class QueryGenerator(Component, Serializable):
         candidate_outputs = [(output[0], output[1]) for output in candidate_outputs]
         if candidate_outputs:
             candidate_outputs = [candidate_outputs[0]]
-    
+
         return candidate_outputs
-    
-    def maxmin_two_entities_solver(self, question: str, entity_ids: List[List[str]]) -> List[Tuple[str]]:
+
+    def maxmin_two_entities_solver(self, question: str, entity_ids: List[List[str]]) -> List[Tuple[str, Any, Any]]:
         ex_rels = []
         for entities_list in entity_ids:
             for entity in entities_list:
                 ex_rels += self.wiki_parser("rels", "backw", entity, type_of_rel="direct")
-        
+
         ex_rels = list(set(ex_rels))
         scores_1 = self.rel_ranker(question, ex_rels)
         top_rels_1 = [score[0] for score in scores_1]
@@ -281,25 +279,25 @@ class QueryGenerator(Component, Serializable):
         return candidate_outputs
 
     def two_hop_solver(self, question: str,
-                             entity_ids: List[List[str]],
-                             rels_from_template: List[Tuple[str]] = None):
+                       entity_ids: List[List[str]],
+                       rels_from_template: List[Tuple[str]] = None):
         candidate_outputs = []
         if len(entity_ids) == 1:
             if rels_from_template is not None:
                 candidate_outputs = self.from_template_one_ent(entity_ids, rels_from_template)
-            
+
             else:
                 ex_rels = []
                 for entity in entity_ids[0][:self.entities_to_leave]:
                     ex_rels += self.wiki_parser("rels", "forw", entity, type_of_rel="direct")
                     ex_rels += self.wiki_parser("rels", "backw", entity, type_of_rel="direct")
-        
+
                 ex_rels = list(set(ex_rels))
                 scores = self.rel_ranker(question, ex_rels)
                 top_rels = [score[0] for score in scores]
                 if self.debug:
                     log.debug(f"top scored rels: {top_rels}")
-            
+
                 ex_rels_2 = []
                 for entity in entity_ids[0][:self.entities_to_leave]:
                     for rel in top_rels[:self.rels_to_leave]:
@@ -308,7 +306,7 @@ class QueryGenerator(Component, Serializable):
                         if len(objects_mid) < 10:
                             for obj in objects_mid:
                                 ex_rels_2 += self.wiki_parser("rels", "forw", obj, type_of_rel="direct")
-        
+
                 ex_rels_2 = list(set(ex_rels_2))
                 scores_2 = self.rel_ranker(question, ex_rels_2)
                 top_rels_2 = [score[0] for score in scores_2]
@@ -358,7 +356,7 @@ class QueryGenerator(Component, Serializable):
                                                          type_of_rel="direct")
                             if objects_2:
                                 candidate_outputs.append((rel, object_1))
-            
+
         return candidate_outputs
 
     def find_relevant_subgraph_cqwn(self, entities_list: List[str], rels: List[str], num: str) -> List[Tuple[str]]:
@@ -382,12 +380,12 @@ class QueryGenerator(Component, Serializable):
                         if len(second_rels) > 0 and len(answer_triplets) > 0:
                             for ans in answer_triplets:
                                 candidate_outputs.append((rel, ans[1], ans[2]))
-                
+
         return candidate_outputs
 
     def find_relevant_subgraph_cqwq(self, ent_combs: List[Tuple[str]], rels: List[str]) -> List[Tuple[str]]:
         candidate_outputs = []
-        
+
         for ent_comb in ent_combs:
             for rel in rels:
                 objects_1 = self.wiki_parser("objects", "forw", ent_comb[0], rel, type_of_rel=None)
@@ -406,7 +404,7 @@ class QueryGenerator(Component, Serializable):
                             for second_rel in second_rels:
                                 for ans in answers:
                                     candidate_outputs.append((rel, second_rel, ans))
-                
+
         return candidate_outputs
 
     def find_relevant_subgraph_maxmin_one(self, entities_list: List[str], rels: List[str]) -> List[Tuple[str]]:
@@ -422,15 +420,15 @@ class QueryGenerator(Component, Serializable):
                     if len(objects_2) > 0:
                         number = re.search(r'["]([^"]*)["]*', objects_2[0]).group(1)
                         candidate_answers.append((rel, obj, float(number)))
-                
+
                 if len(candidate_answers) > 0:
                     return candidate_answers
 
         return candidate_answers
 
     def find_relevant_subgraph_maxmin_two(self, ent_combs: List[Tuple[str]],
-                                                rels_1: List[str],
-                                                rels_2: List[str]) -> List[Tuple[str]]:
+                                          rels_1: List[str],
+                                          rels_2: List[str]) -> List[Tuple[str]]:
         candidate_answers = []
 
         for ent_comb in ent_combs:
@@ -442,18 +440,18 @@ class QueryGenerator(Component, Serializable):
                     candidate_answers = []
                     for obj in objects_intersect:
                         objects_3 = self.wiki_parser("objects", "forw", obj, rel_2, type_of_rel="direct",
-                                                      filter_obj="http://www.w3.org/2001/XMLSchema#decimal")
+                                                     filter_obj="http://www.w3.org/2001/XMLSchema#decimal")
                         if len(objects_3) > 0:
                             number = re.search(r'["]([^"]*)["]*', objects_3[0]).group(1)
                             candidate_answers.append((rel_1, rel_2, obj, float(number)))
-                    
+
                     if len(candidate_answers) > 0:
                         return candidate_answers
 
         return candidate_answers
 
     def from_template_one_ent(self, entity_ids: List[List[str]],
-                                    rels_from_template: List[Tuple[str]]) -> List[Tuple[str]]:
+                              rels_from_template: List[Tuple[str]]) -> List[Tuple[str]]:
         candidate_outputs = []
         if len(rels_from_template) == 1:
             relation = rels_from_template[0][0]
@@ -480,8 +478,8 @@ class QueryGenerator(Component, Serializable):
 
         return candidate_outputs
 
-    def from_template_two_ent(self, ent_combs: List[Tuple[str]], 
-                                    rels_from_template: List[Tuple[str]]) -> List[Tuple[str]]:
+    def from_template_two_ent(self, ent_combs: List[Tuple[str]],
+                              rels_from_template: List[Tuple[str]]) -> List[Tuple[str]]:
         candidate_outputs = []
         if len(rels_from_template) == 1:
             relation = rels_from_template[0][0]
@@ -504,7 +502,7 @@ class QueryGenerator(Component, Serializable):
             for ent_comb in ent_combs:
                 objects_1 = self.wiki_parser("objects", direction_1, ent_comb[0], relation_1, type_of_rel="direct")
                 objects_2 = self.wiki_parser("objects", direction_2, ent_comb[1], relation_2, type_of_rel="direct")
-                objects_intersect = list(set(objects_1)&set(objects_2))
+                objects_intersect = list(set(objects_1) & set(objects_2))
                 if objects_intersect:
                     return [(relation_1, relation_2, objects_intersect[0])]
 
@@ -527,7 +525,7 @@ class QueryGenerator(Component, Serializable):
             for tok in question_tokens:
                 isdigit = [l.isdigit() for l in tok[:4]]
                 isdigit_0 = [l.isdigit() for l in tok[-4:]]
-                
+
                 if sum(isdigit) == 4 and len(tok) == 4:
                     year = tok
                     break
@@ -570,13 +568,12 @@ class QueryGenerator(Component, Serializable):
 
         return True
 
-    def make_entity_combs(self, entity_ids: List[List[str]]) -> List[Tuple[str]]:
+    def make_entity_combs(self, entity_ids: List[List[str]]) -> List[Tuple[str, str, int]]:
         ent_combs = []
         for n, entity_1 in enumerate(entity_ids[0]):
             for m, entity_2 in enumerate(entity_ids[1]):
-                ent_combs.append((entity_1, entity_2, (n+m)))
-                ent_combs.append((entity_2, entity_1, (n+m)))
+                ent_combs.append((entity_1, entity_2, (n + m)))
+                ent_combs.append((entity_2, entity_1, (n + m)))
 
         ent_combs = sorted(ent_combs, key=lambda x: x[2])
         return ent_combs
-

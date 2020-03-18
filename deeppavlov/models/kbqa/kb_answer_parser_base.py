@@ -45,7 +45,7 @@ class KBBase(Component, Serializable):
             *args:
             **kwargs:
         """
-        
+
         super().__init__(save_path=None, load_path=load_path)
         self._relations_filename = relations_maping_filename
         self.wiki_filename = wiki_filename
@@ -64,7 +64,6 @@ class KBBase(Component, Serializable):
                 self._relations_mapping = pickle.load(f)
         with open(self.load_path / self.wiki_filename, 'rb') as fl:
             self.wikidata = pickle.load(fl)
-        
 
     def save(self) -> None:
         pass
@@ -72,15 +71,15 @@ class KBBase(Component, Serializable):
     def is_kbqa_question(self, question_init: str, lang: str) -> bool:
         is_kbqa = True
         not_kbqa_question_templates_rus = ["почему", "когда будет", "что будет", "что если", "для чего ", "как ",
-                                       "что делать", "зачем", "что может"]
+                                           "что делать", "зачем", "что может"]
         not_kbqa_question_templates_eng = ["why", "what if", "how"]
         kbqa_question_templates_rus = ["как зовут", "как называется", "как звали", "как ты думаешь", "как твое мнение",
-                                   "как ты считаешь"]
+                                       "как ты считаешь"]
 
         question = ''.join([ch for ch in question_init if ch not in punctuation]).lower()
         if lang == "rus":
             is_kbqa = (all(template not in question for template in not_kbqa_question_templates_rus) or
-                    any(template in question for template in kbqa_question_templates_rus))
+                       any(template in question for template in kbqa_question_templates_rus))
         if lang == "eng":
             is_kbqa = all(template not in question for template in not_kbqa_question_templates_eng)
         return is_kbqa

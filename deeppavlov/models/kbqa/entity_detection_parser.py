@@ -22,12 +22,13 @@ class EntityDetectionParser(Component):
     """
         This class parses probabilities of tokens to be a token from the entity substring
     """
-    def __init__(self, thres_proba: float=0.86, **kwargs):
+
+    def __init__(self, thres_proba: float = 0.86, **kwargs):
         self.thres_proba = thres_proba
         pass
 
     def __call__(self, question_tokens: List[List[str]],
-                       token_probas: List[List[float]], **kwargs):
+                 token_probas: List[List[List[float]]], **kwargs):
         tokens, probas = question_tokens[0], token_probas[0]
 
         tags = []
@@ -44,7 +45,7 @@ class EntityDetectionParser(Component):
         entities = []
         start = 0
         entity = ''
-        replace_tokens = [(' - ', '-'), ("'s", ''), (' .',''), ('{', ''), ('}', '')]
+        replace_tokens = [(' - ', '-'), ("'s", ''), (' .', ''), ('{', ''), ('}', '')]
 
         for tok, tag, proba in zip(tokens, tags, probas):
             if tag != 0 and start == 0:
@@ -62,4 +63,3 @@ class EntityDetectionParser(Component):
                 pass
 
         return entities
-

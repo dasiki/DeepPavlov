@@ -28,9 +28,10 @@ class TemplateMatcher(Component, Serializable):
         to extract entity substrings and define which relations
         corresponds to the question
     """
+
     def __init__(self, load_path: str,
-                       templates_filename: str = None,
-                       **kwargs) -> None:
+                 templates_filename: str = None,
+                 **kwargs) -> None:
         """
 
         Args:
@@ -73,7 +74,7 @@ class TemplateMatcher(Component, Serializable):
                         found = False
                 if found:
                     cur_len = sum(entity_lengths)
-                    if cur_len < min_length and template_len+cur_len == question_length:
+                    if cur_len < min_length and template_len + cur_len == question_length:
                         entities = entities_cand
                         relations = self.templates[template][1:]
                         query_type = self.templates[template][0]

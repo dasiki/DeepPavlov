@@ -14,7 +14,6 @@
 
 from logging import getLogger
 from typing import List, Tuple, Optional
-
 import numpy as np
 
 from deeppavlov.core.common.registry import register
@@ -34,13 +33,13 @@ class KBAnswerParserWikidata(KBBase):
         answer entity.
     """
 
-    def __init__(self, top_k_classes: int, 
-                       debug: bool = False,
-                       rule_filter_entities: bool = False, 
-                       language: str = "eng",
-                       relations_maping_filename: Optional[str] = None, 
-                       templates_filename: Optional[str] = None,
-                       *args, **kwargs) -> None:
+    def __init__(self, top_k_classes: int,
+                 debug: bool = False,
+                 rule_filter_entities: bool = False,
+                 language: str = "eng",
+                 relations_maping_filename: Optional[str] = None,
+                 templates_filename: Optional[str] = None,
+                 *args, **kwargs) -> None:
         """
 
         Args:
@@ -74,8 +73,8 @@ class KBAnswerParserWikidata(KBBase):
         confidences_batch = []
 
         for question, tokens, tags, relations_probs, relations_labels in \
-                     zip(questions_batch, tokens_batch, tags_batch, relations_probs_batch, relations_labels_batch):
-            is_kbqa = self.is_kbqa_question(tokens, self.language)
+                zip(questions_batch, tokens_batch, tags_batch, relations_probs_batch, relations_labels_batch):
+            is_kbqa = self.is_kbqa_question(question, self.language)
             if is_kbqa:
                 if self._templates_filename is not None:
                     entity_from_template, relations_from_template, query_type = self.template_matcher(question)
@@ -91,12 +90,12 @@ class KBAnswerParserWikidata(KBBase):
                     if self.rule_filter_entities and self.language == 'rus':
                         entity_ids, entity_triplets, entity_linking_confidences = \
                             self.filter_triplets_rus(entity_triplets, entity_linking_confidences, tokens, entity_ids)
-                    
+
                     relation_prob = 1.0
                     obj, confidence = self.match_triplet(entity_triplets,
-                                                          entity_linking_confidences,
-                                                          [relation_from_template],
-                                                          [relation_prob])
+                                                         entity_linking_confidences,
+                                                         [relation_from_template],
+                                                         [relation_prob])
                 else:
                     entity_from_ner = self.extract_entities(tokens, tags)
                     entity_ids, entity_linking_confidences = self.linker(entity_from_ner)
@@ -108,8 +107,8 @@ class KBAnswerParserWikidata(KBBase):
                     top_k_probs = self._parse_relations_probs(relations_probs)
                     top_k_relation_names = [self._relations_mapping[rel] for rel in relations_labels]
                     if self._debug:
-                        log.debug("entity_from_ner {}, top k relations {}" .format(str(entity_from_ner),
-                                                                                   str(top_k_relation_names)))
+                        log.debug("entity_from_ner {}, top k relations {}".format(str(entity_from_ner),
+                                                                                  str(top_k_relation_names)))
                     obj, confidence = self.match_triplet(entity_triplets,
                                                          entity_linking_confidences,
                                                          relations_labels,
@@ -151,7 +150,8 @@ class KBAnswerParserWikidata(KBBase):
         return entity_triplets
 
     def filter_triplets_rus(self, entity_triplets: List[List[List[str]]], confidences, question_tokens: List[str],
-                            srtd_cand_ent: List[Tuple[str]]) -> Tuple[List[Tuple[str]], List[List[List[str]]]]:
+                            srtd_cand_ent: List[Tuple[str]]) -> Tuple[
+        List[Tuple[str]], List[List[List[str]]], List[float]]:
 
         question = ' '.join(question_tokens).lower()
         what_template = 'что '
@@ -184,4 +184,3 @@ class KBAnswerParserWikidata(KBBase):
             filtered_confidences.append(confidence)
 
         return filtered_entities, filtered_entity_triplets, filtered_confidences
-

@@ -12,15 +12,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import json
 import re
 import nltk
 from logging import getLogger
-from deeppavlov.core.common.chainer import Chainer
 from deeppavlov.core.common.registry import register
 from deeppavlov.core.models.component import Component
 from deeppavlov.core.models.serializable import Serializable
-from typing import Union, Tuple, List, Dict
+from typing import Tuple, List, Any
 from deeppavlov.models.kbqa.template_matcher import TemplateMatcher
 from deeppavlov.models.kbqa.entity_linking import EntityLinker
 from deeppavlov.models.kbqa.wiki_parser_online import WikiParserOnline, get_answer
@@ -36,16 +34,17 @@ class QueryGeneratorOnline(Component, Serializable):
         fills the slots of the template with candidate entities and relations.
         The class uses Wikidata query service
     """
+
     def __init__(self, template_matcher: TemplateMatcher,
-                       linker: EntityLinker,
-                       wiki_parser: WikiParserOnline,
-                       rel_ranker: RelRankerInfer,
-                       load_path: str,
-                       rank_rels_filename_1: str,
-                       rank_rels_filename_2: str,
-                       entities_to_leave: int = 5,
-                       rels_to_leave: int = 10,
-                       debug: bool = False, **kwargs):
+                 linker: EntityLinker,
+                 wiki_parser: WikiParserOnline,
+                 rel_ranker: RelRankerInfer,
+                 load_path: str,
+                 rank_rels_filename_1: str,
+                 rank_rels_filename_2: str,
+                 entities_to_leave: int = 5,
+                 rels_to_leave: int = 10,
+                 debug: bool = False, **kwargs):
         """
 
         Args:
@@ -85,13 +84,13 @@ class QueryGeneratorOnline(Component, Serializable):
     def save(self) -> None:
         pass
 
-    def __call__(self, question_tuple: List[str], 
-                       template_type: List[str], 
-                       entities_from_ner: List[str]) -> List[Tuple[str]]:
+    def __call__(self, question_tuple: List[str],
+                 template_type: List[str],
+                 entities_from_ner: List[str]) -> List[Tuple[str]]:
 
         candidate_outputs = []
         question = question_tuple[0]
-        self.template_num  = int(template_type[0])
+        self.template_num = int(template_type[0])
 
         question = question.replace('"', "'").replace('{', '').replace('}', '').replace('  ', ' ')
         entities_from_template, rels_from_template, query_type_template = self.template_matcher(question)
@@ -125,16 +124,16 @@ class QueryGeneratorOnline(Component, Serializable):
             entity_ids.append(entity_id[:15])
         return entity_ids
 
-    def find_candidate_answers(self, question: str, 
-                                     entity_ids: List[List[str]], 
-                                     rels_from_template: List[Tuple[str]]) -> List[Tuple[str]]:
+    def find_candidate_answers(self, question: str,
+                               entity_ids: List[List[str]],
+                               rels_from_template: List[Tuple[str]]) -> List[Tuple[str]]:
         candidate_outputs = []
 
         if self.template_num == 0 or self.template_num == 1:
             candidate_outputs = self.complex_question_with_number_solver(question, entity_ids)
 
         if self.template_num == 2 or self.template_num == 3:
-            candidate_outputs = self.complex_question_with_qualifier_solver(question, entity_ids)
+            candidate_outputs = self.complex_question_with_qualifier_solver(entity_ids)
             if not candidate_outputs:
                 self.template_num = 7
 
@@ -151,7 +150,7 @@ class QueryGeneratorOnline(Component, Serializable):
             candidate_outputs = self.two_hop_solver(question, entity_ids, rels_from_template)
 
         if self.debug:
-            log.debug("candidate_rels_and_answers:\n"+'\n'.join([str(output) for output in candidate_outputs[:10]]))
+            log.debug("candidate_rels_and_answers:\n" + '\n'.join([str(output) for output in candidate_outputs[:10]]))
 
         return candidate_outputs
 
@@ -165,52 +164,52 @@ class QueryGeneratorOnline(Component, Serializable):
             log.debug(f"year {year}, number {number}")
 
         candidate_outputs = []
-            
+
         if year:
             if self.template_num == 0:
                 template = "SELECT ?obj ?p1 ?p2 ?p3 WHERE {{ wd:{} ?p1 ?s . ?s ?p2 ?obj . ?s ?p3 ?x " + \
-                                                    "filter(contains(YEAR(?x),'{}')) }}"
+                           "filter(contains(YEAR(?x),'{}')) }}"
             if self.template_num == 1:
                 template = "SELECT ?obj ?p1 ?p2 ?p3 WHERE {{ wd:{} ?p1 ?s . ?s ?p2 ?x " + \
-                                                    "filter(contains(YEAR(?x),{})) . ?s ?p3 ?obj }}"
+                           "filter(contains(YEAR(?x),{})) . ?s ?p3 ?obj }}"
             candidate_outputs = self.find_relevant_subgraph_cqwn(template, entity_ids[0][:self.entities_to_leave], year)
         if number:
             if self.template_num == 0:
                 template = "SELECT ?obj ?p1 ?p2 ?p3 WHERE {{ wd:{} ?p1 ?s . ?s ?p2 ?obj . ?s ?p3 ?x " + \
-                                                     "filter(contains(?x,'{}')) }}"
+                           "filter(contains(?x,'{}')) }}"
             if self.template_num == 1:
                 template = "SELECT ?obj ?p1 ?p2 ?p3 WHERE {{ wd:{} ?p1 ?s . ?s ?p2 ?x " + \
-                                                     "filter(contains(?x,{})) . ?s ?p3 ?obj }}"
-                
+                           "filter(contains(?x,{})) . ?s ?p3 ?obj }}"
+
             candidate_outputs = self.find_relevant_subgraph_cqwn(template, entity_ids[0][:self.entities_to_leave],
-                                                                  number)
+                                                                 number)
 
         return candidate_outputs
 
-    def complex_question_with_qualifier_solver(self, question: str, entity_ids: List[List[str]]) -> List[Tuple[str]]:
+    def complex_question_with_qualifier_solver(self, entity_ids: List[List[str]]) -> List[Tuple[str]]:
         candidate_outputs = []
-    
+
         if len(entity_ids) > 1:
             ent_combs = self.make_entity_combs(entity_ids)
             if self.template_num == 2:
                 query = "SELECT ?obj ?p1 ?p2 ?p3 WHERE {{ wd:{} ?p1 ?s . ?s ?p2 wd:{} . ?s ?p3 ?obj }}"
-    
+
             if self.template_num == 3:
                 query = "SELECT ?obj ?p1 ?p2 ?p3 WHERE {{ wd:{} ?p1 ?s . ?s ?p2 ?obj . ?s ?p3 wd:{} }}"
-                
+
             candidate_outputs = self.find_relevant_subgraph_cqwq(query, ent_combs)
-    
+
         return candidate_outputs
 
-    def questions_with_count_solver(self, question: str, entity_ids: List[List[str]]) -> List[Tuple[str]]:
+    def questions_with_count_solver(self, question: str, entity_ids: List[List[str]]) -> List[Tuple[str, Any]]:
         candidate_outputs = []
-        
+
         ex_rels = []
         for entity_id in entity_ids:
             for entity in entity_id[:self.entities_to_leave]:
                 ex_rels += self.wiki_parser("rels", "forw", entity)
                 ex_rels += self.wiki_parser("rels", "backw", entity)
-        
+
         ex_rels = list(set(ex_rels))
         scores = self.rel_ranker(question, ex_rels)
         top_rels = [score[0] for score in scores]
@@ -218,25 +217,24 @@ class QueryGeneratorOnline(Component, Serializable):
             log.debug(f"top scored rels: {top_rels}")
         for entity_id in entity_ids:
             for entity in entity_id[:self.entities_to_leave]:
-                rel_list = ["?p = wdt:{}".format(rel) for rel in top_rels[:self.rels_to_leave]]
-                rel_str = " || ".join(rel_list)
-                template = "SELECT (COUNT(?obj) AS ?value ) {{ wd:{} ?p ?obj . FILTER({}) }}"
-                query = template.format(entity, rel_str)
-                answers = get_answer(query)
-                if answers:
-                    candidate_outputs.append((rel, answers[0]["value"]["value"]))
-                    return candidate_outputs
-                else:
-                    template = "SELECT (COUNT(?obj) AS ?value ) {{ ?obj wdt:{} wd:{} . FILTER({}) }}"
-                    query = template.format(rel_str, entity)
+                for rel in top_rels[:self.rels_to_leave]:
+                    template = "SELECT (COUNT(?obj) AS ?value) {{ wd:{} wdt:{} ?obj }}"
+                    query = template.format(entity, rel)
                     answers = get_answer(query)
                     if answers:
                         candidate_outputs.append((rel, answers[0]["value"]["value"]))
                         return candidate_outputs
+                    else:
+                        template = "SELECT (COUNT(?obj) AS ?value) {{ ?obj wdt:{} wd:{} }}"
+                        query = template.format(rel, entity)
+                        answers = get_answer(query)
+                        if answers:
+                            candidate_outputs.append((rel, answers[0]["value"]["value"]))
+                            return candidate_outputs
 
         return candidate_outputs
-    
-    def maxmin_one_entity_solver(self, question: str, entities_list: List[str]) -> List[Tuple[str]]:
+
+    def maxmin_one_entity_solver(self, question: str, entities_list: List[str]) -> List[Tuple[str, str]]:
         scores = self.rel_ranker(question, self.rank_list_0)
         top_rels = [score[0] for score in scores]
         rel_list = ["?p = wdt:{}".format(rel) for rel in top_rels]
@@ -246,10 +244,10 @@ class QueryGeneratorOnline(Component, Serializable):
         ascending = self.asc_desc(question)
         if ascending:
             query = "SELECT ?ent ?p WHERE {{ ?ent wdt:P31 wd:{} . ?ent ?p ?obj . FILTER({}) }} " + \
-                                                                  "ORDER BY ASC(?obj)LIMIT 1"
+                    "ORDER BY ASC(?obj)LIMIT 1"
         else:
             query = "SELECT ?ent ?p WHERE {{ ?ent wdt:P31 wd:{} . ?ent ?p ?obj . FILTER({}) }} " + \
-                                                                  "ORDER BY DESC(?obj)LIMIT 1"
+                    "ORDER BY DESC(?obj)LIMIT 1"
         candidate_outputs = self.find_relevant_subgraph_maxmin_one(query, entities_list, rel_str)
 
         return candidate_outputs
@@ -259,7 +257,7 @@ class QueryGeneratorOnline(Component, Serializable):
         for entities_list in entity_ids:
             for entity in entities_list:
                 ex_rels += self.wiki_parser("rels", "backw", entity)
-        
+
         ex_rels = list(set(ex_rels))
         scores_1 = self.rel_ranker(question, ex_rels)
         top_rels_1 = [score[0] for score in scores_1]
@@ -283,18 +281,18 @@ class QueryGeneratorOnline(Component, Serializable):
             ascending = self.asc_desc(question)
             if ascending:
                 query = "SELECT ?ent WHERE {{ ?ent wdt:P31 wd:{} . ?ent ?p1 ?obj . ?ent ?p2 wd:{} . " + \
-                                                 "FILTER(({})&&({})) }} ORDER BY ASC(?obj)LIMIT 1"
+                        "FILTER(({})&&({})) }} ORDER BY ASC(?obj)LIMIT 1"
             else:
                 query = "SELECT ?ent WHERE {{ ?ent wdt:P31 wd:{} . ?ent ?p1 ?obj . ?ent ?p2 wd:{} . " + \
-                                                 "FILTER(({})&&({})) }} ORDER BY DESC(?obj)LIMIT 1"
+                        "FILTER(({})&&({})) }} ORDER BY DESC(?obj)LIMIT 1"
 
             candidate_outputs = self.find_relevant_subgraph_maxmin_two(query, ent_combs, rel_str_1, rel_str_2)
 
         return candidate_outputs
 
     def two_hop_solver(self, question: str,
-                             entity_ids: List[List[str]],
-                             rels_from_template: List[Tuple[str]] = None):
+                       entity_ids: List[List[str]],
+                       rels_from_template: List[Tuple[str]] = None):
         candidate_outputs = []
         if len(entity_ids) == 1:
             if rels_from_template is not None:
@@ -336,7 +334,6 @@ class QueryGeneratorOnline(Component, Serializable):
                 rel_str_2 = " || ".join(rel_list_2)
                 if self.debug:
                     log.debug(f"top scored second rels: {top_rels_2}")
-
 
                 for entity in entity_ids[0][:self.entities_to_leave]:
                     template = "SELECT ?p1 ?obj WHERE {{ wd:{} ?p1 ?obj . FILTER({})}}"
@@ -416,12 +413,12 @@ class QueryGeneratorOnline(Component, Serializable):
                             candidate_outputs.append((p1, p2, obj))
                         if candidate_outputs:
                             return candidate_outputs
-            
+
         return candidate_outputs
 
-    def find_relevant_subgraph_cqwn(self, template: str, 
-                                          entities_list: List[str],
-                                          num: str) -> List[Tuple[str]]:
+    def find_relevant_subgraph_cqwn(self, template: str,
+                                    entities_list: List[str],
+                                    num: str) -> List[Tuple[str, str, str]]:
         candidate_outputs = []
 
         for entity in entities_list:
@@ -444,9 +441,9 @@ class QueryGeneratorOnline(Component, Serializable):
         return candidate_outputs
 
     def find_relevant_subgraph_cqwq(self, template: str,
-                                          ent_combs: List[Tuple[str]]) -> List[Tuple[str]]:
+                                    ent_combs: List[Tuple[str, str, int]]) -> List[Tuple[str, str, str]]:
         candidate_outputs = []
-        
+
         for ent_comb in ent_combs:
             query = template.format(ent_comb[0], ent_comb[1])
             answers = get_answer(query)
@@ -457,19 +454,19 @@ class QueryGeneratorOnline(Component, Serializable):
                     p3 = ans["p3"]["value"]
                     obj = ans["obj"]["value"]
                     if (obj.startswith('Q') or obj.endswith("00:00:00Z") or obj.isdigit()) \
-                        and "statement" in p2 and "qualifier" in p3:
+                            and "statement" in p2 and "qualifier" in p3:
                         p1 = p1.split('/')[-1]
                         p3 = p3.split('/')[-1]
                         obj = obj.split('/')[-1]
                         candidate_outputs.append((p1, p3, obj))
                 if candidate_outputs:
                     return candidate_outputs
-                
+
         return candidate_outputs
 
     def find_relevant_subgraph_maxmin_one(self, template: str,
-                                                entities_list: List[str], 
-                                                rel_str: str) -> List[Tuple[str]]:
+                                          entities_list: List[str],
+                                          rel_str: str) -> List[Tuple[str, str]]:
         candidate_answers = []
 
         for entity in entities_list:
@@ -486,9 +483,9 @@ class QueryGeneratorOnline(Component, Serializable):
         return candidate_answers
 
     def find_relevant_subgraph_maxmin_two(self, template: str,
-                                                ent_combs: List[Tuple[str]],
-                                                rel_str_1: str,
-                                                rel_str_2: str) -> List[Tuple[str]]:
+                                          ent_combs: List[Tuple[str, str, int]],
+                                          rel_str_1: str,
+                                          rel_str_2: str) -> List[Tuple[str, str, str]]:
         candidate_answers = []
 
         for ent_comb in ent_combs:
@@ -506,7 +503,7 @@ class QueryGeneratorOnline(Component, Serializable):
         return candidate_answers
 
     def from_template_one_ent(self, entity_ids: List[List[str]],
-                                    rels_from_template: List[Tuple[str]]) -> List[Tuple[str]]:
+                              rels_from_template: List[Tuple[str]]) -> List[Tuple[str, str]]:
         candidate_outputs = []
         if len(rels_from_template) == 1:
             relation = rels_from_template[0][0]
@@ -533,18 +530,17 @@ class QueryGeneratorOnline(Component, Serializable):
 
         return candidate_outputs
 
-    def from_template_two_ent(self, ent_combs: List[Tuple[str]], 
-                                    rels_from_template: List[Tuple[str]]) -> List[Tuple[str]]:
+    def from_template_two_ent(self, ent_combs: List[Tuple[str, str, int]],
+                              rels_from_template: List[Tuple[str]]) -> List[Tuple[str, str]]:
         candidate_outputs = []
         if len(rels_from_template) == 1:
             relation = rels_from_template[0][0]
             direction = rels_from_template[0][1]
             for ent_comb in ent_combs:
-                objects_1 = self.wiki_parser("objects", direction, ent_comb[1], relation, type_of_rel="direct")
+                objects_1 = self.wiki_parser("objects", direction, ent_comb[1], relation)
                 if objects_1:
                     for object_1 in objects_1:
-                        objects_2 = self.wiki_parser("objects", direction, object_1, "P31", obj=ent_comb[0],
-                                                     type_of_rel="direct")
+                        objects_2 = self.wiki_parser("objects", direction, object_1, "P31", obj=ent_comb[0])
                         if objects_2:
                             candidate_outputs.append((relation, objects_2[0]))
                             return candidate_outputs
@@ -555,9 +551,9 @@ class QueryGeneratorOnline(Component, Serializable):
             relation_2 = rels_from_template[1][0]
             direction_2 = rels_from_template[1][1]
             for ent_comb in ent_combs:
-                objects_1 = self.wiki_parser("objects", direction_1, ent_comb[0], relation_1, type_of_rel="direct")
-                objects_2 = self.wiki_parser("objects", direction_2, ent_comb[1], relation_2, type_of_rel="direct")
-                objects_intersect = list(set(objects_1)&set(objects_2))
+                objects_1 = self.wiki_parser("objects", direction_1, ent_comb[0], relation_1)
+                objects_2 = self.wiki_parser("objects", direction_2, ent_comb[1], relation_2)
+                objects_intersect = list(set(objects_1) & set(objects_2))
                 if objects_intersect:
                     return [(relation_1, relation_2, objects_intersect[0])]
 
@@ -580,7 +576,7 @@ class QueryGeneratorOnline(Component, Serializable):
             for tok in question_tokens:
                 isdigit = [l.isdigit() for l in tok[:4]]
                 isdigit_0 = [l.isdigit() for l in tok[-4:]]
-                
+
                 if sum(isdigit) == 4 and len(tok) == 4:
                     year = tok
                     break
@@ -623,13 +619,12 @@ class QueryGeneratorOnline(Component, Serializable):
 
         return True
 
-    def make_entity_combs(self, entity_ids: List[List[str]]) -> List[Tuple[str]]:
+    def make_entity_combs(self, entity_ids: List[List[str]]) -> List[Tuple[str, str, int]]:
         ent_combs = []
         for n, entity_1 in enumerate(entity_ids[0]):
             for m, entity_2 in enumerate(entity_ids[1]):
-                ent_combs.append((entity_1, entity_2, (n+m)))
-                ent_combs.append((entity_2, entity_1, (n+m)))
+                ent_combs.append((entity_1, entity_2, (n + m)))
+                ent_combs.append((entity_2, entity_1, (n + m)))
 
         ent_combs = sorted(ent_combs, key=lambda x: x[2])
         return ent_combs
-

@@ -37,14 +37,14 @@ class KBTree(KBBase):
         and relation extraction.
     """
 
-    def __init__(self, tree_parser: TreeParser, 
-                       ft_embedder: FasttextEmbedder,
-                       debug: bool = False, 
-                       use_templates: bool = True,
-                       relations_maping_filename: Optional[str] = None, 
-                       templates_filename: Optional[str] = None,
-                       language: str = "rus",
-                       *args, **kwargs) -> None:
+    def __init__(self, tree_parser: TreeParser,
+                 ft_embedder: FasttextEmbedder,
+                 debug: bool = False,
+                 use_templates: bool = True,
+                 relations_maping_filename: Optional[str] = None,
+                 templates_filename: Optional[str] = None,
+                 language: str = "rus",
+                 *args, **kwargs) -> None:
 
         """
 
@@ -61,7 +61,7 @@ class KBTree(KBBase):
             *args:
             **kwargs:
         """
-        
+
         self._debug = debug
         self.use_templates = use_templates
         self.tree_parser = tree_parser
@@ -91,9 +91,9 @@ class KBTree(KBBase):
                     entity_triplets = self.extract_triplets_from_wiki(entity_ids)
                     rel_prob = 1.0
                     obj, confidence = self.match_triplet(entity_triplets,
-                                             entity_linking_confidences,
-                                             [relation_from_template],
-                                             [rel_prob])
+                                                         entity_linking_confidences,
+                                                         [relation_from_template],
+                                                         [rel_prob])
                     objects_batch.append(obj)
                     confidences_batch.append(confidence)
                 else:
@@ -124,7 +124,7 @@ class KBTree(KBBase):
         return parsed_objects_batch, confidences_batch
 
     def filter_triplets(self, triplets: List[List[str]],
-                              sentence: str) -> List[List[str]]:
+                        sentence: str) -> List[List[str]]:
         where_rels = ["P131", "P30", "P17", "P276", "P19", "P20", "P119"]
         when_rels = ["P585", "P569", "P570", "P571", "P580", "P582"]
         filtered_triplets = []
@@ -161,6 +161,7 @@ class KBTree(KBBase):
     tokens of relation extracted from syntactic tree and all relations from wikidata
     and we find which relation from wikidata has the biggest cosine similarity
     """
+
     def match_rel(self,
                   entity_triplets: List[List[List[str]]],
                   entity_linking_confidences: List[float],
@@ -200,7 +201,7 @@ class KBTree(KBBase):
                                     scores.append(np.dot(av_detected_emb, alias_emb))
                         if np.asarray(scores).mean() > max_score:
                             max_score = np.asarray(scores).mean()
-                            rel_prob = min(max_score/10.0, 1.0)
+                            rel_prob = min(max_score / 10.0, 1.0)
                             confidence = linking_confidence * rel_prob
                             found_obj = obj
 

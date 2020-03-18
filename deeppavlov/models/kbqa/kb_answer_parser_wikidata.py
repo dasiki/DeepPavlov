@@ -16,7 +16,6 @@ import pickle
 from logging import getLogger
 from string import punctuation
 from typing import List, Tuple, Optional, Dict
-
 import numpy as np
 
 from deeppavlov.core.common.registry import register

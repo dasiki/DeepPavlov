@@ -29,12 +29,13 @@ class RelRankerBertInfer(Component, Serializable):
     """
         class for ranking of paths in subgraph
     """
+
     def __init__(self, load_path: str,
-                       rel_q2name_filename: str,
-                       wiki_parser: WikiParser,
-                       ranker: RelRanker,
-                       batch_size: int = 32,
-                       debug: bool = False,  **kwargs):
+                 rel_q2name_filename: str,
+                 wiki_parser: WikiParser,
+                 ranker: RelRanker,
+                 batch_size: int = 32,
+                 debug: bool = False, **kwargs):
         """
 
         Args:
@@ -57,27 +58,28 @@ class RelRankerBertInfer(Component, Serializable):
     def load(self) -> None:
         with open(self.load_path / self.rel_q2name_filename, 'rb') as inv:
             self.rel_q2name = pickle.load(inv)
-            
+
     def save(self) -> None:
         pass
 
-    def __call__(self, questions: List[str], candidate_answers: List[Tuple[str]]) -> List[str]:
+    def __call__(self, questions: List[str], candidate_answers: List[Tuple[str]]) -> List[List[str]]:
         question = questions[0]
         answers_with_scores = []
 
         if len(candidate_answers) == 0:
             return ["Not Found"]
-        
-        for i in range(len(candidate_answers)//self.batch_size):
+
+        for i in range(len(candidate_answers) // self.batch_size):
             questions_batch = []
             rels_labels_batch = []
             answers_batch = []
             for j in range(self.batch_size):
-                candidate_rels = candidate_answers[(i*self.batch_size+j)][:-1]
+                candidate_rels = candidate_answers[(i * self.batch_size + j)][:-1]
                 candidate_rels = [candidate_rel.split('/')[-1] for candidate_rel in candidate_rels]
-                candidate_answer = candidate_answers[(i*self.batch_size+j)][-1]
+                candidate_answer = candidate_answers[(i * self.batch_size + j)][-1]
                 candidate_rels = " [SEP] ".join([self.rel_q2name[candidate_rel] \
-                                 for candidate_rel in candidate_rels if candidate_rel in self.rel_q2name])
+                                                 for candidate_rel in candidate_rels if
+                                                 candidate_rel in self.rel_q2name])
 
                 if candidate_rels:
                     questions_batch.append(question)
@@ -92,12 +94,12 @@ class RelRankerBertInfer(Component, Serializable):
         questions_batch = []
         rels_labels_batch = []
         answers_batch = []
-        for j in range(len(candidate_answers)%self.batch_size):
-            candidate_rels = candidate_answers[(len(candidate_answers)//self.batch_size*self.batch_size+j)][:-1]
+        for j in range(len(candidate_answers) % self.batch_size):
+            candidate_rels = candidate_answers[(len(candidate_answers) // self.batch_size * self.batch_size + j)][:-1]
             candidate_rels = [candidate_rel.split('/')[-1] for candidate_rel in candidate_rels]
-            candidate_answer = candidate_answers[(len(candidate_answers)//self.batch_size*self.batch_size+j)][-1]
+            candidate_answer = candidate_answers[(len(candidate_answers) // self.batch_size * self.batch_size + j)][-1]
             candidate_rels = " [SEP] ".join([self.rel_q2name[candidate_rel] \
-                                 for candidate_rel in candidate_rels if candidate_rel in self.rel_q2name])
+                                             for candidate_rel in candidate_rels if candidate_rel in self.rel_q2name])
 
             if candidate_rels:
                 questions_batch.append(question)
@@ -117,5 +119,3 @@ class RelRankerBertInfer(Component, Serializable):
         answer = self.wiki_parser("objects", "forw", answers_with_scores[0][0], find_label=True)
 
         return [answer]
-    
-

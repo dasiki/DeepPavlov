@@ -38,8 +38,9 @@ class TreeParser(Component, Serializable):
     """
         This class parses the question using UDPipe to detect entity and relation
     """
-    def __init__(self, load_path: str, 
-                       udpipe_filename: str, **kwargs) -> None:
+
+    def __init__(self, load_path: str,
+                 udpipe_filename: str, **kwargs) -> None:
         """
         
         Args:
@@ -71,8 +72,8 @@ class TreeParser(Component, Serializable):
         detected_entity = detected_entity.replace("первый ", '')
         return detected_entity, detected_rel
 
-    def find_entity(self, tree: Node, 
-                          q_tokens: List[str]) -> Tuple[bool, str, str]:
+    def find_entity(self, tree: Node,
+                    q_tokens: List[str]) -> Tuple[bool, str, str]:
         detected_entity = ""
         detected_rel = ""
         min_tree = 10
@@ -85,7 +86,7 @@ class TreeParser(Component, Serializable):
             node = leaf_node
             desc_list = []
             entity_tokens = []
-            while node.parent.upos in ["NOUN", "PROPN"] and node.parent.deprel!="root"\
+            while node.parent.upos in ["NOUN", "PROPN"] and node.parent.deprel != "root" \
                     and not node.parent.parent.form.startswith("Как"):
                 node = node.parent
             detected_rel = node.parent.form
@@ -96,9 +97,9 @@ class TreeParser(Component, Serializable):
                 if tok in desc_list:
                     entity_tokens.append(tok)
                     num_tok = n
-            if (num_tok+1) < len(q_tokens):
-                if q_tokens[(num_tok+1)].isdigit():
-                    entity_tokens.append(q_tokens[(num_tok+1)])
+            if (num_tok + 1) < len(q_tokens):
+                if q_tokens[(num_tok + 1)].isdigit():
+                    entity_tokens.append(q_tokens[(num_tok + 1)])
             detected_entity = ' '.join(entity_tokens)
             return True, detected_entity, detected_rel
 
@@ -112,5 +113,5 @@ class TreeParser(Component, Serializable):
                 detected_rel = node.parent.form
                 detected_entity = node.form
                 return True, detected_entity, detected_rel
-        
+
         return False, detected_entity, detected_rel

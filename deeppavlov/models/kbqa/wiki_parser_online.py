@@ -43,16 +43,17 @@ class WikiParserOnline(Component):
     """
         This class extracts relations or objects from Wikidata query service
     """
+
     def __init__(self, **kwargs) -> None:
         pass
 
-    def __call__(self, what_return: str, 
-                       direction: str, 
-                       entity: str, 
-                       rel: str = None, 
-                       obj: str = None, 
-                       find_label: bool = False) -> List[str]:
-         
+    def __call__(self, what_return: str,
+                 direction: str,
+                 entity: str,
+                 rel: str = None,
+                 obj: str = None,
+                 find_label: bool = False) -> List[str]:
+
         if find_label:
             if entity.startswith("Q"):
                 template = "SELECT DISTINCT ?label WHERE {{ wd:{} rdfs:label ?label . FILTER (lang(?label) = 'en') }}"
@@ -64,7 +65,6 @@ class WikiParserOnline(Component):
 
             else:
                 return entity
-
 
         if direction == "forw":
             if obj is not None:
@@ -107,5 +107,3 @@ class WikiParserOnline(Component):
                     return objects
 
         return []
-        
-

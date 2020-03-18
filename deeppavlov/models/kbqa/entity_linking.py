@@ -14,7 +14,7 @@
 
 import pickle
 from logging import getLogger
-from typing import List, Dict, Tuple, Optional
+from typing import List, Dict, Tuple, Optional, Any
 
 import nltk
 import pymorphy2
@@ -39,15 +39,16 @@ class EntityLinker(Component, Serializable):
         entities extracted from the question, if nothing is found entities are searched in the dictionary using
         Levenstein distance between the entity and keys (titles) in the dictionary.
     """
-    def __init__(self, load_path: str, 
-                       inverted_index_filename: str,
-                       entities_list_filename: str,
-                       q2name_filename: str,
-                       wiki_parser: WikiParser = None,
-                       use_hdt: bool = False,
-                       lemmatize: bool = False,
-                       use_prefix_tree: bool = False,
-                       **kwargs) -> None:
+
+    def __init__(self, load_path: str,
+                 inverted_index_filename: str,
+                 entities_list_filename: str,
+                 q2name_filename: str,
+                 wiki_parser: WikiParser = None,
+                 use_hdt: bool = False,
+                 lemmatize: bool = False,
+                 use_prefix_tree: bool = False,
+                 **kwargs) -> None:
         """
 
         Args:
@@ -107,7 +108,7 @@ class EntityLinker(Component, Serializable):
 
         return wiki_entities, confidences
 
-    def candidate_entities_inverted_index(self, entity: str) -> List[Tuple[str]]:
+    def candidate_entities_inverted_index(self, entity: str) -> List[Tuple[Any, Any, Any]]:
         word_tokens = nltk.word_tokenize(entity.lower())
         candidate_entities = []
 
@@ -124,7 +125,7 @@ class EntityLinker(Component, Serializable):
                     if lemmatized_tok in self.inverted_index:
                         candidate_entities += self.inverted_index[lemmatized_tok]
                         found = True
-                
+
                 if not found and self.use_prefix_tree:
                     words_with_levens_1 = self.searcher.search(tok, d=1)
                     for word in words_with_levens_1:
@@ -136,13 +137,13 @@ class EntityLinker(Component, Serializable):
 
     def sort_found_entities(self, candidate_entities: List[Tuple[str]],
                             candidate_names: List[List[str]],
-                            entity: str) -> Tuple[List[str], List[str], List[Tuple[str]]]:
+                            entity: str) -> Tuple[List[str], List[float], List[Tuple[str, str, int, int]]]:
         entities_ratios = []
         for candidate, entity_names in zip(candidate_entities, candidate_names):
             entity_id = candidate[1]
             num_rels = candidate[2]
             entity_name = entity_names[0]
-            fuzz_ratio = max([fuzz.ratio(name.lower(), entity.lower()) for name in entity_names]) 
+            fuzz_ratio = max([fuzz.ratio(name.lower(), entity.lower()) for name in entity_names])
             entities_ratios.append((entity_name, entity_id, fuzz_ratio, num_rels))
 
         srtd_with_ratios = sorted(entities_ratios, key=lambda x: (x[2], x[3]), reverse=True)
@@ -151,8 +152,8 @@ class EntityLinker(Component, Serializable):
 
         return wiki_entities, confidences, srtd_with_ratios
 
-    def candidate_entities_names(self, entity: str, 
-                                       candidate_entities: List[Tuple[str]]) -> List[List[str]]:
+    def candidate_entities_names(self, entity: str,
+                                 candidate_entities: List[Tuple[int, str]]) -> Tuple[List[Tuple[str]], List[List[str]]]:
         entity_length = len(entity)
         candidate_names = []
         candidate_entities_filter = []
@@ -162,7 +163,7 @@ class EntityLinker(Component, Serializable):
             entity_names = []
             if self.use_hdt:
                 entity_name = self.wiki_parser("objects", "forw", entity_id, find_label=True)
-                if entity_name != "Not Found" and len(entity_name) < 2*entity_length:
+                if entity_name != "Not Found" and len(entity_name) < 2 * entity_length:
                     entity_names.append(entity_name)
                     aliases = self.wiki_parser("objects", "forw", entity_id, find_alias=True)
                     for alias in aliases:
@@ -171,7 +172,7 @@ class EntityLinker(Component, Serializable):
                     candidate_entities_filter.append(candidate)
             else:
                 entity_names_found = self.q2name[entity_num]
-                if len(entity_names_found[0]) < 6*entity_length:
+                if len(entity_names_found[0]) < 6 * entity_length:
                     entity_name = entity_names_found[0]
                     entity_names.append(entity_name)
                     if len(entity_names_found) > 1:
@@ -181,4 +182,3 @@ class EntityLinker(Component, Serializable):
                     candidate_entities_filter.append(candidate)
 
         return candidate_entities_filter, candidate_names
-

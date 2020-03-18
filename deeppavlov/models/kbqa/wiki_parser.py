@@ -18,24 +18,26 @@ from deeppavlov.core.commands.utils import expand_path
 from deeppavlov.core.common.registry import register
 from deeppavlov.core.models.component import Component
 
+
 @register('wiki_parser')
 class WikiParser(Component):
     """
         This class extract relations, objects or triplets from Wikidata HDT file
     """
+
     def __init__(self, wiki_filename: str, **kwargs):
         wiki_path = expand_path(wiki_filename)
         self.document = HDTDocument(str(wiki_path))
 
-    def __call__(self, what_return: str, 
-                       direction: str,
-                       entity: str,
-                       rel: str = None, 
-                       obj: str = None, 
-                       type_of_rel: str = None, 
-                       filter_obj: str = None, 
-                       find_label: str = False, 
-                       find_alias: str = False) -> List[str]:
+    def __call__(self, what_return: str,
+                 direction: str,
+                 entity: str,
+                 rel: str = None,
+                 obj: str = None,
+                 type_of_rel: str = None,
+                 filter_obj: str = None,
+                 find_label: str = False,
+                 find_alias: str = False) -> List[str]:
         """
 
         Args:
@@ -52,12 +54,12 @@ class WikiParser(Component):
         """
 
         if not entity.startswith("http://www.wikidata.org/") and entity.startswith("Q"):
-            entity = "http://www.wikidata.org/entity/"+entity
-        
+            entity = "http://www.wikidata.org/entity/" + entity
+
         if find_label:
             if entity.startswith("http://www.wikidata.org/entity/"):
                 labels, cardinality = self.document.search_triples(entity,
-                                                                "http://www.w3.org/2000/01/rdf-schema#label", "")
+                                                                   "http://www.w3.org/2000/01/rdf-schema#label", "")
                 for label in labels:
                     if label[2].endswith("@en"):
                         found_label = label[2].strip('@en').strip('"')
@@ -80,7 +82,7 @@ class WikiParser(Component):
             aliases = []
             if entity.startswith("http://www.wikidata.org/entity/"):
                 labels, cardinality = self.document.search_triples(entity,
-                                                            "http://www.w3.org/2004/02/skos/core#altLabel", "")
+                                                                   "http://www.w3.org/2004/02/skos/core#altLabel", "")
                 for label in labels:
                     if label[2].endswith("@en"):
                         aliases.append(label[2].strip('@en').strip('"'))
@@ -94,10 +96,10 @@ class WikiParser(Component):
                 rel = "http://www.wikidata.org/prop/{}/{}".format(type_of_rel, rel)
         else:
             rel = ""
-        
+
         if obj is not None:
             if not obj.startswith("http://www.wikidata.org/"):
-                obj = "http://www.wikidata.org/entity/"+obj
+                obj = "http://www.wikidata.org/entity/" + obj
         else:
             obj = ""
 
@@ -116,7 +118,7 @@ class WikiParser(Component):
             rels = [triplet[1].split('/')[-1] for triplet in found_triplets]
             rels = list(set(rels))
             return rels
-        
+
         if what_return == "triplets":
             return found_triplets
 
@@ -127,4 +129,3 @@ class WikiParser(Component):
                 objects = [triplet[0] for triplet in found_triplets]
 
             return objects
-
