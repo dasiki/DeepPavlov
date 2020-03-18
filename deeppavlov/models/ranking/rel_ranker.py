@@ -6,7 +6,7 @@ from deeppavlov.core.common.registry import register
 from deeppavlov.core.models.tf_model import LRScheduledTFModel
 from deeppavlov.core.models.component import Component
 from deeppavlov.models.embedders.abstract_embedder import Embedder
-from deeppavlov.core.layers.tf_layers import cudnn_bi_gru, variational_dropout
+from deeppavlov.core.layers.tf_layers import variational_dropout
 from deeppavlov.models.squad.utils import softmax_mask
 from deeppavlov.models.squad.utils import CudnnGRU
 
@@ -71,7 +71,8 @@ class RelRanker(LRScheduledTFModel):
         r_len_2 = tf.reduce_sum(tf.cast(r_mask_2, tf.int32), axis=2)
         r_mask = tf.cast(r_len_2, tf.bool)
         r_len = tf.reduce_sum(tf.cast(r_mask, tf.int32), axis=1)
-        rel_emb = tf.math.divide_no_nan(tf.reduce_sum(self.rel_emb_ph, axis=1), tf.cast(tf.expand_dims(r_len, axis=1), tf.float32))
+        rel_emb = tf.math.divide_no_nan(tf.reduce_sum(self.rel_emb_ph, axis=1),
+                                        tf.cast(tf.expand_dims(r_len, axis=1), tf.float32))
 
         self.y_ph = tf.placeholder(tf.int32, shape=(None,))
         self.one_hot_labels = tf.one_hot(self.y_ph, depth=self.n_classes, dtype=tf.float32)
