@@ -67,11 +67,13 @@ class ParaphraserReader(DatasetReader):
                         if child.get('name') == 'text_2':
                             question.append(child.text.lower() if do_lower_case else child.text)
                         if child.get('name') == 'class':
-                            y = 1 if int(child.text) >= 0 else 0
+                            y = int(child.text)
+
                     root.clear()
-                    check_string = "\n".join(question)
-                    if check_string not in same_set:
-                        same_set.add(check_string)
-                        questions.append(question)
-                        labels.append(y)
+                    #check_string = "\n".join(question)
+                    #if check_string not in same_set:
+                    #    same_set.add(check_string)
+                    questions.append(question)
+                    labels.append(y)
+            
             return list(zip(questions, labels))

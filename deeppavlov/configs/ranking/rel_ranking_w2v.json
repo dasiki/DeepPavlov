@@ -49,6 +49,7 @@
         "return_probas": false,
         "save_path": "{MODEL_PATH}/model",
         "load_path": "{MODEL_PATH}/model",
+        "attention": "simple",
         "learning_rate": 1e-3,
         "dropout_keep_prob": 0.7,
         "in": ["question_emb", "rel_emb"],
@@ -64,8 +65,8 @@
     "batch_size": 50,
     "pytest_max_batches": 2,
     "metrics": [
-      "f1",
-      "acc"
+      "acc",
+      "f1"
     ],
     "validation_patience": 5,
     "val_every_n_batches": 5000,
